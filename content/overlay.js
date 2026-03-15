@@ -121,18 +121,36 @@
   // ── Banner rendering ─────────────────────────────────────────────────
 
   /**
-   * Find the composer container to inject the banner above it.
-   * @returns {Element|null}
+   * Find the composer's bordered input container — the element with the
+   * visible border and rounded corners that the user types into.
+   * We match the banner's width to this element.
+   * @returns {{ anchor: Element, ref: Element } | null}
+   *   anchor: the element to insert the banner before
+   *   ref: the element whose width/position we match
    */
-  function findComposerContainer() {
+  function findComposerElements() {
     const { query, SELECTORS } = ns.selectors;
-    // Try to find the main composer wrapper.
-    const composer = query(SELECTORS.composerContainer);
-    if (composer) return composer;
-    // Fallback: find the message input and use its parent.
     const input = query(SELECTORS.messageInput);
-    if (input) return input.closest('[class*="composer"], [class*="message_pane_input"]') || input.parentElement;
-    return null;
+    if (!input) return null;
+
+    // Walk up from the contenteditable to find the bordered composer wrapper.
+    // Slack wraps the input in a container with a visible border.
+    let ref = input;
+    let el = input.parentElement;
+    while (el && el !== document.body) {
+      const style = window.getComputedStyle(el);
+      const hasBorder = style.borderWidth && parseFloat(style.borderWidth) > 0
+        && style.borderStyle !== 'none'
+        && style.borderColor !== 'rgba(0, 0, 0, 0)';
+      const hasRadius = parseFloat(style.borderRadius) > 0;
+      if (hasBorder && hasRadius) {
+        ref = el;
+        break;
+      }
+      el = el.parentElement;
+    }
+
+    return { anchor: ref, ref: ref };
   }
 
   /**
@@ -144,12 +162,13 @@
     // Remove existing banner.
     dismiss(false);
 
-    const composer = findComposerContainer();
-    if (!composer) {
+    const composerEls = findComposerElements();
+    if (!composerEls) {
       console.error('[SlackCorrector] Cannot find composer container for banner.');
       ns.interceptorActive = false;
       return;
     }
+    const { anchor, ref } = composerEls;
 
     bannerEl = document.createElement('div');
     bannerEl.className = 'sc-banner';
@@ -196,8 +215,12 @@
       `;
     }
 
-    // Insert banner above the composer.
-    composer.parentElement.insertBefore(bannerEl, composer);
+    // Match the banner width to the composer's bordered input container.
+    const refRect = ref.getBoundingClientRect();
+    bannerEl.style.width = refRect.width + 'px';
+
+    // Insert banner directly before the composer's bordered container.
+    anchor.parentElement.insertBefore(bannerEl, anchor);
 
     // Event listeners.
     bannerEl.addEventListener('click', handleClick);

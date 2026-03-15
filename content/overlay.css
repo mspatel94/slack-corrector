@@ -1,14 +1,16 @@
 /* SlackCorrector — inline suggestion banner above Slack's composer */
 
 .sc-banner {
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
+  background: #f8f8f8;
+  border: 1px solid #babbbf;
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   z-index: 999999;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  /* Width is set dynamically by JS to match the composer */
+  box-sizing: border-box;
 }
 
 /* Header row */
