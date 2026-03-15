@@ -11,146 +11,222 @@
   };
   const MODE_KEYS = Object.keys(MODE_LABELS);
 
-  let backdropEl = null;
+  let bannerEl = null;
   let originalText = '';
+  let correctedText = '';
   let currentMode = 'professional';
 
   /**
-   * Show the overlay in loading state.
+   * Show the banner in loading state.
    * @param {string} text - Original message text
    * @param {string} mode - Correction mode key
    */
   function show(text, mode) {
     originalText = text;
     currentMode = mode;
-    render('loading');
+    correctedText = '';
+    renderBanner('loading');
   }
 
   /**
-   * Update the overlay with the correction result.
+   * Update the banner with the correction result.
    * @param {import('../providers/base.js').CorrectionResult} result
    */
   function update(result) {
     if (result.ok) {
-      render('success', result.text);
+      correctedText = result.text;
+      renderBanner('success');
     } else {
-      render('error', result.error);
+      renderBanner('error', result.error);
     }
   }
 
+  // ── Word-level diff ──────────────────────────────────────────────────
+
   /**
-   * Render the overlay in the given state.
-   * @param {'loading'|'success'|'error'} state
-   * @param {string} [content]
+   * Compute a simple word-level diff between two strings.
+   * Returns an array of { type: 'equal'|'del'|'ins', text: string }.
+   *
+   * Uses a longest-common-subsequence approach on word arrays.
+   * @param {string} oldStr
+   * @param {string} newStr
+   * @returns {{ type: string, text: string }[]}
    */
-  function render(state, content) {
-    // Remove existing overlay if any.
-    dismiss(false);
+  function wordDiff(oldStr, newStr) {
+    const oldWords = oldStr.split(/(\s+)/);
+    const newWords = newStr.split(/(\s+)/);
 
-    // Check for rich text in original.
-    const inputEl = ns.selectors.query(ns.selectors.SELECTORS.messageInput);
-    const hasRichText = inputEl && inputEl.querySelector('b, i, a, code, pre, span[style]');
+    // Build LCS table.
+    const m = oldWords.length;
+    const n = newWords.length;
+    const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
 
-    backdropEl = document.createElement('div');
-    backdropEl.className = 'sc-overlay-backdrop';
-    backdropEl.innerHTML = `
-      <div class="sc-overlay-modal">
-        <div class="sc-header">
-          <div class="sc-header-title">
-            <div class="sc-header-icon">&#10003;</div>
-            <span class="sc-header-name">SlackCorrector</span>
-          </div>
-          <select class="sc-mode-select">
-            ${MODE_KEYS.map((k) => `<option value="${k}" ${k === currentMode ? 'selected' : ''}>${MODE_LABELS[k]}</option>`).join('')}
-          </select>
-        </div>
-
-        <div class="sc-original">
-          <div class="sc-label">Original</div>
-          <div class="sc-original-text">${escapeHtml(originalText)}</div>
-        </div>
-
-        ${hasRichText ? '<div class="sc-rich-text-warning">Note: formatting will be simplified to plain text.</div>' : ''}
-
-        <div class="sc-content">
-          ${renderContent(state, content)}
-        </div>
-
-        <div class="sc-actions">
-          <button class="sc-btn sc-btn-secondary" data-action="original">
-            Send Original <span class="sc-shortcut">&#8984;&#8679;&#9166;</span>
-          </button>
-          <button class="sc-btn sc-btn-secondary" data-action="cancel">
-            Cancel <span class="sc-shortcut">Esc</span>
-          </button>
-          ${state === 'success' ? `
-            <button class="sc-btn sc-btn-primary" data-action="corrected">
-              Send Corrected <span class="sc-shortcut">&#8984;&#9166;</span>
-            </button>
-          ` : ''}
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(backdropEl);
-
-    // Focus the editable area if in success state.
-    if (state === 'success') {
-      const correctedEl = backdropEl.querySelector('.sc-corrected-text');
-      if (correctedEl) correctedEl.focus();
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (oldWords[i - 1] === newWords[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
     }
 
+    // Backtrack to build diff.
+    const result = [];
+    let i = m;
+    let j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && oldWords[i - 1] === newWords[j - 1]) {
+        result.unshift({ type: 'equal', text: oldWords[i - 1] });
+        i--;
+        j--;
+      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+        result.unshift({ type: 'ins', text: newWords[j - 1] });
+        j--;
+      } else {
+        result.unshift({ type: 'del', text: oldWords[i - 1] });
+        i--;
+      }
+    }
+
+    // Merge consecutive same-type segments.
+    const merged = [];
+    for (const seg of result) {
+      if (merged.length > 0 && merged[merged.length - 1].type === seg.type) {
+        merged[merged.length - 1].text += seg.text;
+      } else {
+        merged.push({ ...seg });
+      }
+    }
+
+    return merged;
+  }
+
+  /**
+   * Render a word diff as HTML with redline styling.
+   * @param {string} oldStr
+   * @param {string} newStr
+   * @returns {string}
+   */
+  function renderDiffHtml(oldStr, newStr) {
+    const diffs = wordDiff(oldStr, newStr);
+    return diffs.map((d) => {
+      if (d.type === 'equal') return escapeHtml(d.text);
+      if (d.type === 'del') return `<span class="sc-diff-del">${escapeHtml(d.text)}</span>`;
+      if (d.type === 'ins') return `<span class="sc-diff-ins">${escapeHtml(d.text)}</span>`;
+      return '';
+    }).join('');
+  }
+
+  // ── Banner rendering ─────────────────────────────────────────────────
+
+  /**
+   * Find the composer container to inject the banner above it.
+   * @returns {Element|null}
+   */
+  function findComposerContainer() {
+    const { query, SELECTORS } = ns.selectors;
+    // Try to find the main composer wrapper.
+    const composer = query(SELECTORS.composerContainer);
+    if (composer) return composer;
+    // Fallback: find the message input and use its parent.
+    const input = query(SELECTORS.messageInput);
+    if (input) return input.closest('[class*="composer"], [class*="message_pane_input"]') || input.parentElement;
+    return null;
+  }
+
+  /**
+   * Render the inline banner above Slack's composer.
+   * @param {'loading'|'success'|'error'} state
+   * @param {string} [errorMsg]
+   */
+  function renderBanner(state, errorMsg) {
+    // Remove existing banner.
+    dismiss(false);
+
+    const composer = findComposerContainer();
+    if (!composer) {
+      console.error('[SlackCorrector] Cannot find composer container for banner.');
+      ns.interceptorActive = false;
+      return;
+    }
+
+    bannerEl = document.createElement('div');
+    bannerEl.className = 'sc-banner';
+
+    if (state === 'loading') {
+      bannerEl.innerHTML = `
+        <div class="sc-banner-loading">
+          <div class="sc-spinner"></div>
+          Correcting...
+        </div>
+      `;
+    } else if (state === 'error') {
+      bannerEl.innerHTML = `
+        <div class="sc-banner-header">
+          <div class="sc-banner-header-left">
+            <svg class="sc-banner-icon" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="6" fill="#d32f2f"/><path d="M4 4L8 8M8 4L4 8" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span class="sc-banner-label">Error</span>
+          </div>
+          <div class="sc-banner-actions">
+            <button class="sc-btn-dismiss" data-action="cancel">Esc</button>
+          </div>
+        </div>
+        <div class="sc-banner-error">${escapeHtml(errorMsg)}</div>
+      `;
+    } else {
+      // Success state.
+      bannerEl.innerHTML = `
+        <div class="sc-banner-header">
+          <div class="sc-banner-header-left">
+            <svg class="sc-banner-icon" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="6" fill="#007a5a"/><path d="M3.5 6L5.5 8L8.5 4.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="sc-banner-label">Suggestion</span>
+            <span class="sc-banner-sep">&middot;</span>
+            <select class="sc-mode-select">
+              ${MODE_KEYS.map((k) => `<option value="${k}" ${k === currentMode ? 'selected' : ''}>${MODE_LABELS[k]}</option>`).join('')}
+            </select>
+          </div>
+          <div class="sc-banner-actions">
+            <button class="sc-btn-accept" data-action="accept">Tab ↹</button>
+            <button class="sc-btn-dismiss" data-action="cancel">Esc</button>
+          </div>
+        </div>
+        <div class="sc-banner-corrected">${escapeHtml(correctedText)}</div>
+        <div class="sc-banner-diff">${renderDiffHtml(originalText, correctedText)}</div>
+      `;
+    }
+
+    // Insert banner above the composer.
+    composer.parentElement.insertBefore(bannerEl, composer);
+
     // Event listeners.
-    backdropEl.addEventListener('click', handleClick);
-    backdropEl.querySelector('.sc-mode-select').addEventListener('change', handleModeChange);
+    bannerEl.addEventListener('click', handleClick);
+    const modeSelect = bannerEl.querySelector('.sc-mode-select');
+    if (modeSelect) modeSelect.addEventListener('change', handleModeChange);
     document.addEventListener('keydown', handleKeydown);
   }
 
   /**
-   * Render the content area based on state.
-   */
-  function renderContent(state, content) {
-    if (state === 'loading') {
-      return `<div class="sc-loading"><div class="sc-spinner"></div> Correcting...</div>`;
-    }
-    if (state === 'error') {
-      return `<div class="sc-error">${escapeHtml(content)}</div>`;
-    }
-    // success
-    return `
-      <div class="sc-corrected">
-        <div class="sc-label">Corrected <span class="sc-label-hint">(editable)</span></div>
-        <div class="sc-corrected-text" contenteditable="true">${escapeHtml(content)}</div>
-      </div>
-    `;
-  }
-
-  /**
-   * Handle button clicks in the overlay.
+   * Handle button clicks in the banner.
    */
   function handleClick(event) {
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (!action) return;
 
-    if (action === 'corrected') {
-      const correctedEl = backdropEl.querySelector('.sc-corrected-text');
-      sendToSlack(correctedEl.innerText.trim());
-    } else if (action === 'original') {
-      sendToSlack(originalText);
+    if (action === 'accept') {
+      sendToSlack(correctedText);
     } else if (action === 'cancel') {
       dismiss(true);
     }
   }
 
   /**
-   * Handle keyboard shortcuts while overlay is open.
-   * Order matters: Cmd+Shift+Enter check must come before Cmd+Enter
-   * since the Cmd+Enter check uses !event.shiftKey to exclude the shift case.
+   * Handle keyboard shortcuts while banner is visible.
    */
   function handleKeydown(event) {
-    if (!backdropEl) return;
+    if (!bannerEl) return;
 
-    // Esc → cancel
+    // Esc → dismiss, keep original in input.
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -158,33 +234,12 @@
       return;
     }
 
-    // Cmd/Ctrl+Shift+Enter → send original (checked BEFORE Cmd+Enter)
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && event.shiftKey) {
+    // Tab → accept correction.
+    if (event.key === 'Tab' && !event.shiftKey && correctedText) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      sendToSlack(originalText);
+      sendToSlack(correctedText);
       return;
-    }
-
-    // Cmd/Ctrl+Enter → send corrected
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.shiftKey) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      const correctedEl = backdropEl.querySelector('.sc-corrected-text');
-      if (correctedEl) {
-        sendToSlack(correctedEl.innerText.trim());
-      }
-      return;
-    }
-
-    // Tab → cycle modes (only when NOT focused on the editable area)
-    const correctedEl = backdropEl.querySelector('.sc-corrected-text');
-    if (event.key === 'Tab' && document.activeElement !== correctedEl) {
-      event.preventDefault();
-      const select = backdropEl.querySelector('.sc-mode-select');
-      const idx = MODE_KEYS.indexOf(select.value);
-      select.value = MODE_KEYS[(idx + 1) % MODE_KEYS.length];
-      select.dispatchEvent(new Event('change'));
     }
   }
 
@@ -194,13 +249,8 @@
   async function handleModeChange(event) {
     currentMode = event.target.value;
 
-    // Show loading and re-correct.
-    const contentArea = backdropEl.querySelector('.sc-content');
-    contentArea.innerHTML = renderContent('loading');
-
-    // Remove send button during loading.
-    const existingPrimary = backdropEl.querySelector('[data-action="corrected"]');
-    if (existingPrimary) existingPrimary.remove();
+    // Show loading.
+    renderBanner('loading');
 
     try {
       const result = await chrome.runtime.sendMessage({
@@ -209,35 +259,22 @@
         mode: currentMode,
       });
 
-      contentArea.innerHTML = renderContent(result.ok ? 'success' : 'error', result.ok ? result.text : result.error);
-
-      // Re-add send button if correction succeeded.
-      const actionsEl = backdropEl.querySelector('.sc-actions');
       if (result.ok) {
-        const btn = document.createElement('button');
-        btn.className = 'sc-btn sc-btn-primary';
-        btn.dataset.action = 'corrected';
-        btn.innerHTML = 'Send Corrected <span class="sc-shortcut">&#8984;&#9166;</span>';
-        actionsEl.appendChild(btn);
-
-        const newCorrectedEl = backdropEl.querySelector('.sc-corrected-text');
-        if (newCorrectedEl) newCorrectedEl.focus();
+        correctedText = result.text;
+        renderBanner('success');
+      } else {
+        renderBanner('error', result.error);
       }
     } catch (err) {
-      contentArea.innerHTML = renderContent('error', `Extension error: ${err.message}`);
+      renderBanner('error', `Extension error: ${err.message}`);
     }
   }
 
   /**
    * Insert text into Slack's input and trigger send.
    *
-   * Slack uses a React-controlled contenteditable editor. We use
-   * execCommand('delete') + execCommand('insertText') to replace the text,
-   * which fires the internal input events that React listens to.
-   *
-   * Key insight: we must keep focus on the input the entire time. The overlay
-   * must be dismissed AFTER the text is replaced and React has processed it,
-   * not before. Dismissing early steals focus and breaks React's event chain.
+   * Uses execCommand('delete') + execCommand('insertText') to replace text
+   * while keeping focus, so React's internal state stays in sync.
    *
    * @param {string} text
    */
@@ -252,7 +289,7 @@
       return;
     }
 
-    // 1. Focus the input (overlay is still visible but input gets focus).
+    // 1. Focus the input (banner is still visible but input gets focus).
     inputEl.focus();
 
     // 2. Select all content within the input using Range API.
@@ -263,19 +300,16 @@
     sel.addRange(range);
 
     // 3. Delete selected content, then insert corrected text.
-    //    Both execCommands fire input events that update React's state.
     document.execCommand('delete');
     document.execCommand('insertText', false, text);
 
     // 4. Set bypass flag so interceptor lets the send through.
     ns.bypassing = true;
 
-    // 5. Give React a moment to process the text change, then dismiss and send.
+    // 5. Give React a moment to process, then dismiss and send.
     setTimeout(() => {
-      // Dismiss overlay (don't restore focus — input already has it).
       dismiss(false);
 
-      // Trigger send.
       if (sendBtn) {
         sendBtn.click();
       } else {
@@ -287,7 +321,6 @@
         }));
       }
 
-      // Clear bypass flag after send propagation completes.
       setTimeout(() => {
         ns.bypassing = false;
         ns.interceptorActive = false;
@@ -296,14 +329,14 @@
   }
 
   /**
-   * Remove the overlay from the DOM.
+   * Remove the banner from the DOM.
    * @param {boolean} restoreFocus - If true, focus back to Slack's input.
    */
   function dismiss(restoreFocus) {
-    if (backdropEl) {
+    if (bannerEl) {
       document.removeEventListener('keydown', handleKeydown);
-      backdropEl.remove();
-      backdropEl = null;
+      bannerEl.remove();
+      bannerEl = null;
     }
 
     if (restoreFocus) {
@@ -314,7 +347,7 @@
   }
 
   /**
-   * Escape HTML to prevent XSS in overlay content.
+   * Escape HTML to prevent XSS.
    * @param {string} str
    * @returns {string}
    */
