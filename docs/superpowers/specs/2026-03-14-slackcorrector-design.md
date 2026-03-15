@@ -136,10 +136,10 @@ Service worker calls LLM provider
          ▼
 Show overlay with loading spinner → then corrected text
          │
-         ├─ User clicks "Send Corrected" (Enter)
+         ├─ User clicks "Send Corrected" (Cmd/Ctrl+Enter)
          │    → Write corrected text to input → trigger Slack send
          │
-         ├─ User clicks "Send Original" (Cmd+Shift+Enter)
+         ├─ User clicks "Send Original" (Cmd/Ctrl+Shift+Enter)
          │    → Restore original text → trigger Slack send
          │
          └─ User clicks "Cancel" (Esc)
@@ -155,7 +155,7 @@ After the user approves:
 2. Select all content (`document.execCommand('selectAll')` or `Selection` API)
 3. Insert the corrected text via `document.execCommand('insertText', false, correctedText)` — this fires the internal `input` events that React/Quill listens to, updating the framework's state to match the visible DOM
 4. Trigger send by programmatically clicking Slack's send button element (found via selectors) — this is more reliable than synthetic `Enter` keypress events, which have `isTrusted=false` and may be ignored by Slack's handlers
-5. **Re-interception guard**: before step 4, set `window.__slackCorrector.bypassing = true`. The interceptor checks this flag and lets the event through. Clear the flag in a `setTimeout(0)` microtask after the click.
+5. **Re-interception guard**: before step 4, set `window.__slackCorrector.bypassing = true`. The interceptor checks this flag and lets the event through. Clear the flag in a `setTimeout(0)` macrotask after the click (not a microtask — the macrotask ensures Slack's event handlers finish propagating before the flag is cleared).
 
 **Fallback**: if `document.execCommand('insertText')` stops working (it's deprecated but still widely supported), fall back to setting `innerHTML` and dispatching synthetic `InputEvent` with `inputType: 'insertText'`. This is less reliable but serves as a safety net.
 
