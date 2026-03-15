@@ -84,9 +84,12 @@
       return;
     }
 
-    const { query, SELECTORS } = ns.selectors;
-    const inputEl = query(SELECTORS.messageInput);
-    if (!inputEl || !inputEl.contains(document.activeElement)) {
+    const { queryAll, SELECTORS } = ns.selectors;
+    // Find the input that actually contains focus (handles thread panels
+    // where multiple message inputs may exist on the page simultaneously).
+    const inputEls = queryAll(SELECTORS.messageInput);
+    const inputEl = inputEls.find((el) => el.contains(document.activeElement));
+    if (!inputEl) {
       return;
     }
 
