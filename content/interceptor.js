@@ -21,7 +21,7 @@
    * @returns {boolean}
    */
   function shouldSkip(text) {
-    if (text.length < 5) return true;
+    if (text.length < 2) return true;
     if (text.startsWith('/')) return true;
     // Emoji-only: all chars are emoji or whitespace
     const emojiOnly = /^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}\u200d\ufe0f]+$/u;
