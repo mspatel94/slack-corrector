@@ -231,13 +231,13 @@
   /**
    * Insert text into Slack's input and trigger send.
    *
-   * Slack uses a React-controlled contenteditable editor. Simply setting
-   * innerText or using execCommand('insertText') changes the DOM but does NOT
-   * update React's internal state — so Slack still sends the old text.
+   * Slack uses a React-controlled contenteditable editor. We use
+   * execCommand('delete') + execCommand('insertText') to replace the text,
+   * which fires the internal input events that React listens to.
    *
-   * The reliable approach is to simulate a paste event with a DataTransfer
-   * object. Slack's editor handles paste events by reading from the
-   * clipboardData, which properly updates its internal state.
+   * Key insight: we must keep focus on the input the entire time. The overlay
+   * must be dismissed AFTER the text is replaced and React has processed it,
+   * not before. Dismissing early steals focus and breaks React's event chain.
    *
    * @param {string} text
    */
@@ -252,52 +252,30 @@
       return;
     }
 
-    // 1. Dismiss the overlay first so it doesn't interfere with focus.
-    ns.bypassing = true;
-    dismiss(false);
-
-    // 2. Focus the input.
+    // 1. Focus the input (overlay is still visible but input gets focus).
     inputEl.focus();
 
-    // 3. Select all content within the input.
+    // 2. Select all content within the input using Range API.
     const range = document.createRange();
     range.selectNodeContents(inputEl);
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
 
-    // 4. Delete the selected content (updates React state via keyboard event).
+    // 3. Delete selected content, then insert corrected text.
+    //    Both execCommands fire input events that update React's state.
     document.execCommand('delete');
+    document.execCommand('insertText', false, text);
 
-    // 5. Simulate a paste event with the corrected text.
-    //    This is the most reliable way to update React-controlled editors
-    //    because they read from clipboardData in their paste handler.
-    const dt = new DataTransfer();
-    dt.setData('text/plain', text);
-    const pasteEvent = new ClipboardEvent('paste', {
-      clipboardData: dt,
-      bubbles: true,
-      cancelable: true,
-    });
-    inputEl.dispatchEvent(pasteEvent);
+    // 4. Set bypass flag so interceptor lets the send through.
+    ns.bypassing = true;
 
-    // 6. If paste didn't work (some editors block synthetic paste), try
-    //    execCommand('insertText') as a fallback, then InputEvent as last resort.
-    if (inputEl.innerText.trim() !== text.trim()) {
-      const inserted = document.execCommand('insertText', false, text);
-      if (!inserted) {
-        inputEl.textContent = text;
-        inputEl.dispatchEvent(new InputEvent('input', {
-          inputType: 'insertText',
-          data: text,
-          bubbles: true,
-          cancelable: true,
-        }));
-      }
-    }
-
-    // 7. Small delay to let React process the paste/input, then send.
+    // 5. Give React a moment to process the text change, then dismiss and send.
     setTimeout(() => {
+      // Dismiss overlay (don't restore focus — input already has it).
+      dismiss(false);
+
+      // Trigger send.
       if (sendBtn) {
         sendBtn.click();
       } else {
@@ -309,12 +287,12 @@
         }));
       }
 
-      // 8. Clear bypass flag after send propagation completes.
+      // Clear bypass flag after send propagation completes.
       setTimeout(() => {
         ns.bypassing = false;
         ns.interceptorActive = false;
       }, 0);
-    }, 50);
+    }, 100);
   }
 
   /**
