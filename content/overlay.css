@@ -1,0 +1,217 @@
+/* SlackCorrector overlay — injected into Slack's page */
+
+.sc-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.sc-overlay-modal {
+  background: #222529;
+  border: 1px solid #565856;
+  border-radius: 12px;
+  padding: 20px;
+  width: 560px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+.sc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sc-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sc-header-icon {
+  width: 20px;
+  height: 20px;
+  background: #007a5a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #1a1d21;
+  font-weight: 700;
+}
+
+.sc-header-name {
+  color: #d1d2d3;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Mode selector */
+.sc-mode-select {
+  background: #1a1d21;
+  border: 1px solid #565856;
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: #ababad;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.sc-mode-select:focus {
+  border-color: #007a5a;
+}
+
+/* Section labels */
+.sc-label {
+  color: #ababad;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.sc-label-hint {
+  color: #616061;
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Original message (read-only) */
+.sc-original {
+  margin-bottom: 12px;
+}
+
+.sc-original-text {
+  color: #868686;
+  font-size: 14px;
+  padding: 10px 12px;
+  background: #1a1d21;
+  border-radius: 6px;
+  border-left: 3px solid #565856;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Corrected message (editable) */
+.sc-corrected {
+  margin-bottom: 16px;
+}
+
+.sc-corrected-text {
+  color: #d1d2d3;
+  font-size: 14px;
+  padding: 10px 12px;
+  background: #1a1d21;
+  border-radius: 6px;
+  border: 1px solid #007a5a;
+  outline: none;
+  min-height: 40px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sc-corrected-text:focus {
+  border-color: #00a67e;
+  box-shadow: 0 0 0 1px #00a67e;
+}
+
+/* Loading state */
+.sc-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #ababad;
+  font-size: 14px;
+  gap: 10px;
+}
+
+.sc-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #565856;
+  border-top-color: #007a5a;
+  border-radius: 50%;
+  animation: sc-spin 0.8s linear infinite;
+}
+
+@keyframes sc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.sc-error {
+  color: #e01e5a;
+  font-size: 13px;
+  padding: 10px 12px;
+  background: #1a1d21;
+  border-radius: 6px;
+  border-left: 3px solid #e01e5a;
+  margin-bottom: 16px;
+}
+
+/* Rich text warning */
+.sc-rich-text-warning {
+  color: #ecb22e;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+/* Action buttons */
+.sc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sc-btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.sc-btn:focus-visible {
+  box-shadow: 0 0 0 2px #007a5a;
+}
+
+.sc-btn-secondary {
+  background: transparent;
+  border: 1px solid #565856;
+  color: #ababad;
+}
+
+.sc-btn-secondary:hover {
+  background: #2e3136;
+}
+
+.sc-btn-primary {
+  background: #007a5a;
+  color: white;
+  font-weight: 700;
+}
+
+.sc-btn-primary:hover {
+  background: #008c68;
+}
+
+/* Shortcut hints */
+.sc-shortcut {
+  font-size: 10px;
+  color: #616061;
+  margin-left: 4px;
+}
