@@ -210,7 +210,7 @@
             <button class="sc-btn-dismiss" data-action="cancel">Esc</button>
           </div>
         </div>
-        <div class="sc-banner-corrected">${escapeHtml(correctedText)}</div>
+        <div class="sc-banner-corrected" contenteditable="true">${escapeHtml(correctedText)}</div>
         <div class="sc-banner-diff">${renderDiffHtml(originalText, correctedText)}</div>
       `;
     }
@@ -237,7 +237,8 @@
     if (!action) return;
 
     if (action === 'accept') {
-      sendToSlack(correctedText);
+      const editedEl = bannerEl.querySelector('.sc-banner-corrected');
+      sendToSlack(editedEl ? editedEl.innerText.trim() : correctedText);
     } else if (action === 'cancel') {
       dismiss(true);
     }
@@ -257,11 +258,12 @@
       return;
     }
 
-    // Tab → accept correction.
+    // Tab → accept correction (reads from editable div in case user edited it).
     if (event.key === 'Tab' && !event.shiftKey && correctedText) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      sendToSlack(correctedText);
+      const editedEl = bannerEl.querySelector('.sc-banner-corrected');
+      sendToSlack(editedEl ? editedEl.innerText.trim() : correctedText);
       return;
     }
   }

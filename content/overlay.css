@@ -91,12 +91,18 @@
   background: #f0f0f0;
 }
 
-/* Corrected text area */
+/* Corrected text area (editable) */
 .sc-banner-corrected {
   padding: 8px 14px;
   font-size: 14px;
   color: #1d1c1d;
   line-height: 1.5;
+  outline: none;
+  cursor: text;
+}
+
+.sc-banner-corrected:focus {
+  background: #fff;
 }
 
 /* Diff footer */
