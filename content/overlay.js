@@ -230,6 +230,15 @@
 
   /**
    * Insert text into Slack's input and trigger send.
+   *
+   * Slack uses a React-controlled contenteditable editor. Simply setting
+   * innerText or using execCommand('insertText') changes the DOM but does NOT
+   * update React's internal state — so Slack still sends the old text.
+   *
+   * The reliable approach is to simulate a paste event with a DataTransfer
+   * object. Slack's editor handles paste events by reading from the
+   * clipboardData, which properly updates its internal state.
+   *
    * @param {string} text
    */
   function sendToSlack(text) {
@@ -243,59 +252,69 @@
       return;
     }
 
-    // 1. Focus the input.
+    // 1. Dismiss the overlay first so it doesn't interfere with focus.
+    ns.bypassing = true;
+    dismiss(false);
+
+    // 2. Focus the input.
     inputEl.focus();
 
-    // 2. Select all content within the input (using Range API for precision —
-    //    execCommand('selectAll') could select content outside the input).
+    // 3. Select all content within the input.
     const range = document.createRange();
     range.selectNodeContents(inputEl);
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
 
-    // 3. Insert corrected text via execCommand (syncs React/Quill state).
-    //    Fallback to innerHTML + synthetic InputEvent if execCommand fails
-    //    (execCommand is deprecated but still widely supported as of 2026).
-    const inserted = document.execCommand('insertText', false, text);
-    if (!inserted) {
-      // Fallback: set innerHTML directly and dispatch a synthetic InputEvent
-      // with bubbles:true so React's delegated event system sees it.
-      inputEl.innerHTML = '';
-      inputEl.textContent = text;
-      inputEl.dispatchEvent(new InputEvent('input', {
-        inputType: 'insertText',
-        data: text,
-        bubbles: true,
-        cancelable: true,
-      }));
+    // 4. Delete the selected content (updates React state via keyboard event).
+    document.execCommand('delete');
+
+    // 5. Simulate a paste event with the corrected text.
+    //    This is the most reliable way to update React-controlled editors
+    //    because they read from clipboardData in their paste handler.
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    const pasteEvent = new ClipboardEvent('paste', {
+      clipboardData: dt,
+      bubbles: true,
+      cancelable: true,
+    });
+    inputEl.dispatchEvent(pasteEvent);
+
+    // 6. If paste didn't work (some editors block synthetic paste), try
+    //    execCommand('insertText') as a fallback, then InputEvent as last resort.
+    if (inputEl.innerText.trim() !== text.trim()) {
+      const inserted = document.execCommand('insertText', false, text);
+      if (!inserted) {
+        inputEl.textContent = text;
+        inputEl.dispatchEvent(new InputEvent('input', {
+          inputType: 'insertText',
+          data: text,
+          bubbles: true,
+          cancelable: true,
+        }));
+      }
     }
 
-    // 4. Set bypass flag so interceptor lets the send through.
-    ns.bypassing = true;
-
-    // 5. Dismiss the overlay.
-    dismiss(false);
-
-    // 6. Trigger send via button click (preferred) or synthetic Enter.
-    if (sendBtn) {
-      sendBtn.click();
-    } else {
-      // Fallback: synthetic Enter keydown.
-      inputEl.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'Enter',
-        code: 'Enter',
-        bubbles: true,
-        cancelable: true,
-      }));
-    }
-
-    // 7. Clear bypass flag after event propagation completes (macrotask,
-    //    not microtask — ensures Slack's handlers finish before flag clears).
+    // 7. Small delay to let React process the paste/input, then send.
     setTimeout(() => {
-      ns.bypassing = false;
-      ns.interceptorActive = false;
-    }, 0);
+      if (sendBtn) {
+        sendBtn.click();
+      } else {
+        inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        }));
+      }
+
+      // 8. Clear bypass flag after send propagation completes.
+      setTimeout(() => {
+        ns.bypassing = false;
+        ns.interceptorActive = false;
+      }, 0);
+    }, 50);
   }
 
   /**
