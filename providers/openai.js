@@ -1,4 +1,4 @@
-import { SYSTEM_PROMPTS } from './base.js';
+import { SYSTEM_PROMPTS, formatUserMessage } from './base.js';
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
 const API_URL = 'https://api.openai.com/v1/chat/completions';
@@ -10,9 +10,10 @@ const TIMEOUT_MS = 10000;
  * @param {string} mode - Correction mode key (fix, professional, concise, friendly)
  * @param {string} apiKey - OpenAI API key
  * @param {string} [model] - Optional model override
+ * @param {{ sender: string, text: string }[]} [context] - Recent conversation messages
  * @returns {Promise<import('./base.js').CorrectionResult>}
  */
-export async function correct(text, mode, apiKey, model) {
+export async function correct(text, mode, apiKey, model, context) {
   const systemPrompt = SYSTEM_PROMPTS[mode];
   if (!systemPrompt) {
     return { ok: false, error: `Unknown mode: ${mode}` };
@@ -32,7 +33,7 @@ export async function correct(text, mode, apiKey, model) {
         model: model || DEFAULT_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: text },
+          { role: 'user', content: formatUserMessage(text, context) },
         ],
         max_tokens: 1024,
       }),

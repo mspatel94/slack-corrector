@@ -61,11 +61,15 @@
       // Show overlay in loading state.
       ns.overlay.show(text, ns.defaultMode);
 
+      // Scrape recent conversation for context.
+      const context = ns.selectors.getRecentMessages(5);
+
       // Send to background for correction.
       const result = await chrome.runtime.sendMessage({
         type: 'correct',
         text: text,
         mode: ns.defaultMode,
+        context: context,
       });
 
       // Update overlay with result.

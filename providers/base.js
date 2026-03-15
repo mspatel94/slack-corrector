@@ -13,6 +13,24 @@ export const SYSTEM_PROMPTS = {
 };
 
 /**
+ * Format the user message for the LLM, optionally including conversation context.
+ * @param {string} text - The message to correct
+ * @param {{ sender: string, text: string }[]} [context] - Recent conversation messages
+ * @returns {string}
+ */
+export function formatUserMessage(text, context) {
+  if (!context || context.length === 0) {
+    return text;
+  }
+
+  const contextLines = context
+    .map((msg) => `${msg.sender}: ${msg.text}`)
+    .join('\n');
+
+  return `Recent conversation for context:\n${contextLines}\n\nMessage to correct:\n${text}`;
+}
+
+/**
  * @typedef {Object} CorrectionResult
  * @property {boolean} ok
  * @property {string} [text] - Corrected text (if ok)
@@ -23,5 +41,5 @@ export const SYSTEM_PROMPTS = {
  * Provider interface — each provider module must export a `correct` function
  * matching this signature:
  *
- * correct(text: string, mode: string, apiKey: string, model?: string): Promise<CorrectionResult>
+ * correct(text: string, mode: string, apiKey: string, model?: string, context?: { sender: string, text: string }[]): Promise<CorrectionResult>
  */

@@ -41,11 +41,11 @@ function handleHealthCheck(ok) {
 }
 
 /**
- * @param {{ text: string, mode: string }} message
+ * @param {{ text: string, mode: string, context?: { sender: string, text: string }[] }} message
  * @returns {Promise<import('../providers/base.js').CorrectionResult>}
  */
 async function handleCorrection(message) {
-  const { text, mode } = message;
+  const { text, mode, context } = message;
 
   if (!text || !mode) {
     return { ok: false, error: 'Missing text or mode.' };
@@ -62,5 +62,5 @@ async function handleCorrection(message) {
     return { ok: false, error: `Unknown provider: ${settings.provider}` };
   }
 
-  return correctFn(text, mode, settings.apiKey, settings.model || undefined);
+  return correctFn(text, mode, settings.apiKey, settings.model || undefined, context);
 }

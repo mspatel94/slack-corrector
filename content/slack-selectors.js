@@ -32,6 +32,27 @@
       'div[data-qa="edit_message_composer"]',
       'div.p-message_editing__composer',
     ],
+
+    // Individual message elements in the message list.
+    messageItem: [
+      'div.c-message_kit__background',
+      'div[data-qa="message_container"]',
+      'div.c-message',
+    ],
+
+    // Sender name within a message.
+    messageSender: [
+      'button[data-qa="message_sender_name"]',
+      'span.c-message__sender',
+      'a.c-message__sender_link',
+    ],
+
+    // Message body text within a message.
+    messageBody: [
+      'div.p-rich_text_section',
+      'div[data-qa="message-text"]',
+      'div.c-message__body span',
+    ],
   };
 
   /**
@@ -94,6 +115,49 @@
     return { input, sendBtn };
   }
 
+  /**
+   * Scrape the last N visible messages from the current channel/thread.
+   * Returns an array of { sender: string, text: string } objects,
+   * oldest first.
+   * @param {number} [count=5]
+   * @returns {{ sender: string, text: string }[]}
+   */
+  function getRecentMessages(count) {
+    const maxCount = count || 5;
+    const messageEls = queryAll(SELECTORS.messageItem);
+    // Take the last N messages.
+    const recent = messageEls.slice(-maxCount);
+
+    const messages = [];
+    for (const msgEl of recent) {
+      // Find sender name.
+      let sender = '';
+      for (const sel of SELECTORS.messageSender) {
+        const senderEl = msgEl.querySelector(sel);
+        if (senderEl) {
+          sender = senderEl.textContent.trim();
+          break;
+        }
+      }
+
+      // Find message body text.
+      let text = '';
+      for (const sel of SELECTORS.messageBody) {
+        const bodyEl = msgEl.querySelector(sel);
+        if (bodyEl) {
+          text = bodyEl.innerText.trim();
+          break;
+        }
+      }
+
+      if (text) {
+        messages.push({ sender: sender || 'Unknown', text });
+      }
+    }
+
+    return messages;
+  }
+
   // Expose on the shared namespace.
   window.__slackCorrector.selectors = {
     SELECTORS,
@@ -101,6 +165,7 @@
     queryAll,
     isEditComposer,
     healthCheck,
+    getRecentMessages,
   };
 
   // Run health check after a short delay (Slack may still be rendering).

@@ -276,10 +276,12 @@
     renderBanner('loading');
 
     try {
+      const context = ns.selectors.getRecentMessages(5);
       const result = await chrome.runtime.sendMessage({
         type: 'correct',
         text: originalText,
         mode: currentMode,
+        context: context,
       });
 
       if (result.ok) {
