@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="sc-popup">
+    <div class="sc-popup-header">
+      <div class="sc-popup-icon">&#10003;</div>
+      <h1>SlackCorrector</h1>
+    </div>
+
+    <div class="sc-field">
+      <label for="enabled">
+        <input type="checkbox" id="enabled" checked>
+        Enabled
+      </label>
+    </div>
+
+    <div class="sc-field">
+      <label for="provider">Provider</label>
+      <select id="provider">
+        <option value="anthropic">Claude (Anthropic)</option>
+        <option value="openai">OpenAI</option>
+      </select>
+    </div>
+
+    <div class="sc-field">
+      <label for="apiKey">API Key</label>
+      <input type="password" id="apiKey" placeholder="Enter your API key">
+    </div>
+
+    <div class="sc-field">
+      <label for="model">Model (optional)</label>
+      <input type="text" id="model" placeholder="Leave blank for default">
+      <div class="sc-hint" id="modelHint">Default: claude-sonnet-4-20250514</div>
+    </div>
+
+    <div class="sc-field">
+      <label for="defaultMode">Default Correction Mode</label>
+      <select id="defaultMode">
+        <option value="fix">Fix errors only</option>
+        <option value="professional">Professional</option>
+        <option value="concise">Concise</option>
+        <option value="friendly">Friendly but polished</option>
+      </select>
+    </div>
+
+    <div class="sc-actions">
+      <button id="save" class="sc-btn-primary">Save</button>
+      <button id="test" class="sc-btn-secondary">Test API Key</button>
+    </div>
+
+    <div id="status" class="sc-status"></div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

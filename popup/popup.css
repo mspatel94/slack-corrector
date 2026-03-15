@@ -1,0 +1,144 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  background: #1a1d21;
+  color: #d1d2d3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+}
+
+.sc-popup {
+  padding: 16px;
+}
+
+.sc-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #565856;
+}
+
+.sc-popup-icon {
+  width: 24px;
+  height: 24px;
+  background: #007a5a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #1a1d21;
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sc-field {
+  margin-bottom: 12px;
+}
+
+.sc-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #ababad;
+}
+
+.sc-field input[type="text"],
+.sc-field input[type="password"],
+.sc-field select {
+  width: 100%;
+  padding: 6px 10px;
+  background: #222529;
+  border: 1px solid #565856;
+  border-radius: 6px;
+  color: #d1d2d3;
+  font-size: 13px;
+  outline: none;
+}
+
+.sc-field input:focus,
+.sc-field select:focus {
+  border-color: #007a5a;
+}
+
+.sc-field input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: #007a5a;
+}
+
+.sc-hint {
+  font-size: 11px;
+  color: #616061;
+  margin-top: 3px;
+}
+
+.sc-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sc-btn-primary,
+.sc-btn-secondary {
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.sc-btn-primary {
+  background: #007a5a;
+  color: white;
+  font-weight: 700;
+  flex: 1;
+}
+
+.sc-btn-primary:hover {
+  background: #008c68;
+}
+
+.sc-btn-secondary {
+  background: transparent;
+  border: 1px solid #565856;
+  color: #ababad;
+  flex: 1;
+}
+
+.sc-btn-secondary:hover {
+  background: #2e3136;
+}
+
+.sc-status {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: none;
+}
+
+.sc-status.success {
+  display: block;
+  background: rgba(0, 122, 90, 0.2);
+  color: #00a67e;
+  border: 1px solid #007a5a;
+}
+
+.sc-status.error {
+  display: block;
+  background: rgba(224, 30, 90, 0.2);
+  color: #e01e5a;
+  border: 1px solid #e01e5a;
+}
